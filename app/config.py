@@ -30,6 +30,18 @@ class Settings(BaseSettings):
     agent_model: str = Field(default="gemini-3.8-flash", alias="AGENT_MODEL")
     agent_skills_paths: str = Field(default="", alias="AGENT_SKILLS_PATHS")
 
+    # 多租户沙盒与并发管理配置
+    tenants_dir: str = Field(
+        default=os.path.expanduser("~/.gemini/antigravity/tenants"),
+        alias="TENANTS_DIR"
+    )
+    session_store_path: str = Field(
+        default=os.path.expanduser("~/.gemini/antigravity/wechat_sessions.json"),
+        alias="SESSION_STORE_PATH"
+    )
+    max_concurrent_tasks: int = Field(default=5, alias="MAX_CONCURRENT_TASKS")
+    file_retention_days: int = Field(default=7, alias="FILE_RETENTION_DAYS")
+
     # 服务网络配置
     server_host: str = Field(default="0.0.0.0", alias="SERVER_HOST")
     server_port: int = Field(default=8000, alias="SERVER_PORT")

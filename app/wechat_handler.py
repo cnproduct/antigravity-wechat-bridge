@@ -121,5 +121,38 @@ class WeChatHandler:
             logger.warning(f"Markdown 推送失败，降级为普通文本: {e}")
             return self.send_proactive_text(user_id, markdown_content)
 
+    def download_media(self, media_id: str, dest_path: str) -> bool:
+        """
+        根据微信 media_id 下载用户发送的临时文件并保存到本地指定路径
+        """
+        from pathlib import Path
+        if not self._client:
+            logger.warning(f"[Mock Mode] 模拟下载微信临时素材 {media_id} 到 {dest_path}")
+            p = Path(dest_path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text("SKU_SAMPLE_1001\nSKU_SAMPLE_1002\n", encoding="utf-8")
+            return True
+
+        try:
+            res = self._client.media.download(media_id)
+            p = Path(dest_path)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            if hasattr(res, "content"):
+                p.write_bytes(res.content)
+            elif hasattr(res, "iter_content"):
+                with open(p, "wb") as f:
+                    for chunk in res.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+            elif isinstance(res, (bytes, bytearray)):
+                p.write_bytes(res)
+            else:
+                p.write_bytes(res.read() if hasattr(res, "read") else bytes(res))
+            logger.info(f"成功下载微信素材 {media_id} 到 {dest_path}")
+            return True
+        except Exception as e:
+            logger.error(f"下载微信媒体文件失败 (media_id={media_id}): {e}")
+            return False
+
 
 wechat_handler = WeChatHandler()
