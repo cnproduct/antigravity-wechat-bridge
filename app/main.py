@@ -34,9 +34,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Antigravity WeChat Bridge",
-    description="轻量级微信 / 企业微信与 Google Antigravity Agent 远程调度桥接网关（支持多租户与强隔离）",
-    version="1.1.0",
+    title="WB极速上架助手",
+    description="企业微信与 Antigravity 智能体远程调度桥接网关（WB 极速上架专用版）",
+    version="1.2.0",
     lifespan=lifespan
 )
 
@@ -51,7 +51,7 @@ class DispatchRequest(BaseModel):
 @app.get("/")
 async def root():
     return {
-        "service": "Antigravity WeChat Bridge",
+        "service": "WB极速上架助手",
         "status": "online",
         "version": "1.1.0",
         "antigravity_sdk_loaded": ANTIGRAVITY_SDK_AVAILABLE,
@@ -217,7 +217,7 @@ async def wechat_receive(
 
         if user_prompt in ("/help", "帮助", "?"):
             help_text = (
-                f"💡 [Antigravity 微信上架助手指令说明]\n"
+                f"💡 [WB极速上架助手指令说明]\n"
                 f"1. 直接发文字：自然语言交待任务（如“检查我的店铺状态”、“按6倍上架刚才的文件”）。\n"
                 f"2. 发送文件：直接在微信点击“+”发送包含 SKU 的 .txt 文本或表格，智能体将自动读取并准备上架。\n"
                 f"3. /reset：重置当前会话，开启全新的独立上架窗口。\n"

@@ -41,7 +41,7 @@ export default {
     // 1. Health check
     if (url.pathname === "/" || url.pathname === "/health") {
       return new Response(JSON.stringify({
-        service: "Antigravity WeChat Edge Gateway",
+        service: "WB极速上架助手 边缘网关",
         status: "healthy",
         corpId: env.WECHAT_CORP_ID ? `${env.WECHAT_CORP_ID.slice(0, 4)}...` : "not configured",
         kvQueue: !!env.WECHAT_MESSAGE_QUEUE,
