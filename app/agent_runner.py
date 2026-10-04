@@ -56,17 +56,31 @@ class AgentRunner:
 
         logger.info(f"开始为微信用户 [{user_id}] 执行任务: 会话={cid} 工作区={ws_path} 指令={prompt[:60]}...")
 
-        # 1. 向微信推送任务启动进度
-        wechat_handler.send_proactive_text(
-            user_id=user_id,
-            content=(
-                f"🤖 [Antigravity 智能体启动]\n"
-                f"🆔 会话 ID: {cid[:8]}...{cid[-4:]}\n"
-                f"📂 隔离沙盒: {ws_path.name}\n"
-                f"📝 指令: {prompt[:80]}\n"
-                f"⏳ 正在分析项目并执行中..."
+        # 1. 向微信/飞书推送任务启动进度
+        if user_id.startswith("feishu_"):
+            feishu_open_id = user_id[7:]
+            from app.feishu_handler import feishu_handler
+            feishu_handler.send_text(
+                receive_id=feishu_open_id,
+                content=(
+                    f"🤖 [WB极速上架助手 · 智能体启动]\n"
+                    f"🆔 会话 ID: {cid[:8]}...{cid[-4:]}\n"
+                    f"📂 隔离沙盒: {ws_path.name}\n"
+                    f"📝 指令: {prompt[:80]}\n"
+                    f"⏳ 正在分析与执行中..."
+                )
             )
-        )
+        else:
+            wechat_handler.send_proactive_text(
+                user_id=user_id,
+                content=(
+                    f"🤖 [Antigravity 智能体启动]\n"
+                    f"🆔 会话 ID: {cid[:8]}...{cid[-4:]}\n"
+                    f"📂 隔离沙盒: {ws_path.name}\n"
+                    f"📝 指令: {prompt[:80]}\n"
+                    f"⏳ 正在分析项目并执行中..."
+                )
+            )
 
         try:
             if ANTIGRAVITY_SDK_AVAILABLE:
@@ -107,23 +121,34 @@ class AgentRunner:
                     f"✅ 该会话店铺参数与上下文已完成 1:1 独立绑定，无任何串联风险。"
                 )
 
-            # 3. 结果汇总推回微信
+            # 3. 结果汇总推回微信/飞书
             summary_markdown = (
-                f"### ✅ Antigravity 任务执行完成\n"
+                f"### ✅ WB极速上架任务执行完成\n"
                 f"**会话 ID**: `{cid[:8]}...` | **用户**: `{user_id}`\n\n"
                 f"{final_text}"
             )
             
-            # 优先尝试 Markdown 卡片推送，若格式不支持则降级为纯文本
-            wechat_handler.send_proactive_markdown(user_id=user_id, markdown_content=summary_markdown)
-            logger.info(f"微信用户 [{user_id}] (会话: {cid}) 任务执行完成并已推送微信。")
+            if user_id.startswith("feishu_"):
+                feishu_open_id = user_id[7:]
+                from app.feishu_handler import feishu_handler
+                feishu_handler.send_text(receive_id=feishu_open_id, content=f"✅ 上架任务执行结果：\n\n{final_text}")
+                logger.info(f"飞书用户 [{feishu_open_id}] 任务执行完成并已推送飞书。")
+            else:
+                # 微信推送
+                wechat_handler.send_proactive_markdown(user_id=user_id, markdown_content=summary_markdown)
+                logger.info(f"微信用户 [{user_id}] (会话: {cid}) 任务执行完成并已推送微信。")
 
         except Exception as e:
             logger.error(f"Agent 任务执行失败: {e}", exc_info=True)
-            wechat_handler.send_proactive_text(
-                user_id=user_id,
-                content=f"❌ Antigravity Agent 执行出错：\n{str(e)}"
-            )
+            if user_id.startswith("feishu_"):
+                feishu_open_id = user_id[7:]
+                from app.feishu_handler import feishu_handler
+                feishu_handler.send_text(receive_id=feishu_open_id, content=f"❌ WB Agent 执行出错：\n{str(e)}")
+            else:
+                wechat_handler.send_proactive_text(
+                    user_id=user_id,
+                    content=f"❌ Antigravity Agent 执行出错：\n{str(e)}"
+                )
 
 
 agent_runner = AgentRunner()

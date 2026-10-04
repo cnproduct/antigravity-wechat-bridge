@@ -15,6 +15,11 @@ class Settings(BaseSettings):
     wechat_token: str = Field(default="", alias="WECHAT_TOKEN")
     wechat_encoding_aes_key: str = Field(default="", alias="WECHAT_ENCODING_AES_KEY")
 
+    # 飞书机器人配置 (WebSocket 长连接模式)
+    feishu_app_id: str = Field(default="", alias="FEISHU_APP_ID")
+    feishu_app_secret: str = Field(default="", alias="FEISHU_APP_SECRET")
+    feishu_enabled: bool = Field(default=True, alias="FEISHU_ENABLED")
+
     # 权限白名单
     allowed_user_ids: str = Field(default="", alias="ALLOWED_USER_IDS")
 

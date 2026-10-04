@@ -16,6 +16,7 @@ from app.task_queue import task_queue
 
 from contextlib import asynccontextmanager
 from app.pull_worker import pull_worker
+from app.feishu_handler import feishu_handler
 
 # 配置日志格式
 logging.basicConfig(
@@ -27,16 +28,19 @@ logger = logging.getLogger("antigravity.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 启动边缘队列拉取线程 (支持无公网 IP / 无隧道零配置工作)
+    # 1. 启动微信边缘队列拉取线程 (支持无公网 IP / 无隧道零配置工作)
     pull_worker.start()
+    # 2. 启动飞书官方 WebSocket 长连接守护线程 (免公网IP/免域名/秒级响应)
+    feishu_handler.start_worker()
     yield
+    feishu_handler.stop_worker()
     pull_worker.stop()
 
 
 app = FastAPI(
-    title="WB极速上架助手",
-    description="企业微信与 Antigravity 智能体远程调度桥接网关（WB 极速上架专用版）",
-    version="1.2.0",
+    title="WB极速上架助手 (微信+飞书双通道版)",
+    description="企业微信与飞书双通道 Antigravity 智能体远程调度桥接网关",
+    version="1.3.0",
     lifespan=lifespan
 )
 
@@ -53,9 +57,19 @@ async def root():
     return {
         "service": "WB极速上架助手",
         "status": "online",
-        "version": "1.1.0",
+        "version": "1.3.0",
+        "channels": {
+            "wechat": {
+                "configured": wechat_handler.is_configured,
+                "pull_worker": pull_worker._running
+            },
+            "feishu": {
+                "configured": feishu_handler.is_configured,
+                "mode": "websocket_long_connection",
+                "app_id": settings.feishu_app_id
+            }
+        },
         "antigravity_sdk_loaded": ANTIGRAVITY_SDK_AVAILABLE,
-        "wechat_configured": wechat_handler.is_configured,
         "tenants_dir": settings.tenants_dir,
         "max_concurrent_tasks": task_queue.max_concurrent,
         "active_tasks": task_queue.active_tasks,
