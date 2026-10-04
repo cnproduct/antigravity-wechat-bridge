@@ -461,9 +461,19 @@ class AgentRunner:
                     )
                     self._notify_user(user_id, alert_text)
 
+            # 1.5 检查并触发 Antigravity 采集
+            batch_state = state.get("state")
+            if batch_state == "waiting_browser":
+                awaiting_skus = [s for s, i in items.items() if i.get("stage") == "awaiting_browser"]
+                if awaiting_skus:
+                    from app.ozon_scraper import process_awaiting_browser
+                    for s in awaiting_skus:
+                        # 使用 batch 的 started_at，客户端用来校验 receipt 是否过期
+                        batch_started = int(state.get("started_at", 0))
+                        await process_awaiting_browser(conversation_id, s, batch_started, self.get_wb_cmd())
+
             # 2. 检查是否批次终态（全部完成或全部进入终态）
             terminal_count = len(reported_written) + len(reported_blocked)
-            batch_state = state.get("state")
 
             if terminal_count >= total or batch_state in ("completed", "paused"):
                 # 生成终态结束报告
