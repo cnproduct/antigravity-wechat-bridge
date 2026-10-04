@@ -44,13 +44,53 @@ export default {
         service: "Antigravity WeChat Edge Gateway",
         status: "healthy",
         corpId: env.WECHAT_CORP_ID ? `${env.WECHAT_CORP_ID.slice(0, 4)}...` : "not configured",
+        kvQueue: !!env.WECHAT_MESSAGE_QUEUE,
         timestamp: new Date().toISOString()
       }), {
         headers: { "content-type": "application/json; charset=utf-8" }
       });
     }
 
-    // 2. WeChat Webhook
+    // 2. Poll messages (Local bridge pull mode: no public IP or tunnel needed)
+    if (url.pathname === "/wechat/poll") {
+      const authHeader = request.headers.get("authorization") || "";
+      const tokenParam = url.searchParams.get("token") || "";
+      const expectedToken = env.WECHAT_TOKEN;
+
+      if (!expectedToken || (tokenParam !== expectedToken && authHeader !== `Bearer ${expectedToken}`)) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
+      }
+
+      if (!env.WECHAT_MESSAGE_QUEUE) {
+        return new Response(JSON.stringify({ error: "kv_not_configured" }), { status: 503 });
+      }
+
+      try {
+        const list = await env.WECHAT_MESSAGE_QUEUE.list({ prefix: "msg:", limit: 20 });
+        const messages = [];
+
+        for (const key of list.keys) {
+          const val = await env.WECHAT_MESSAGE_QUEUE.get(key.name);
+          if (val) {
+            try {
+              messages.push({ key: key.name, data: JSON.parse(val) });
+            } catch {
+              messages.push({ key: key.name, data: val });
+            }
+          }
+          // Delete once retrieved (FIFO pop)
+          await env.WECHAT_MESSAGE_QUEUE.delete(key.name);
+        }
+
+        return new Response(JSON.stringify({ ok: true, count: messages.length, messages }), {
+          headers: { "content-type": "application/json; charset=utf-8" }
+        });
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err.message }), { status: 500 });
+      }
+    }
+
+    // 3. WeChat Webhook (GET = Verify URL, POST = Receive Messages)
     if (url.pathname === "/wechat/webhook") {
       const msgSignature = url.searchParams.get("msg_signature");
       const timestamp = url.searchParams.get("timestamp");
@@ -70,7 +110,6 @@ export default {
 
         try {
           const { msg } = decryptWeChatPayload(echostr, env.WECHAT_ENCODING_AES_KEY, env.WECHAT_CORP_ID);
-          // Return decrypted echostr in plain text
           return new Response(msg, {
             status: 200,
             headers: { "content-type": "text/plain; charset=utf-8" }
@@ -99,7 +138,25 @@ export default {
           const { msg } = decryptWeChatPayload(encryptedData, env.WECHAT_ENCODING_AES_KEY, env.WECHAT_CORP_ID);
           console.log("Decrypted incoming WeChat message:", msg.slice(0, 200));
 
-          // Forward to local bridge or webhook forwarder if configured
+          // 1. Store in KV Queue for local bridge pull mode
+          if (env.WECHAT_MESSAGE_QUEUE) {
+            const msgKey = `msg:${Date.now()}:${crypto.randomUUID()}`;
+            ctx.waitUntil(
+              env.WECHAT_MESSAGE_QUEUE.put(
+                msgKey,
+                JSON.stringify({
+                  decrypted_xml: msg,
+                  timestamp: Date.now(),
+                  raw_xml: bodyText,
+                  msg_signature: msgSignature,
+                  nonce: nonce
+                }),
+                { expirationTtl: 3600 }
+              )
+            );
+          }
+
+          // 2. Forward to local bridge via tunnel/push mode if configured
           if (env.FORWARD_URL) {
             ctx.waitUntil(
               fetch(env.FORWARD_URL, {
@@ -110,7 +167,7 @@ export default {
             );
           }
 
-          // Acknowledge WeChat immediately with 200 success
+          // Acknowledge WeChat immediately with 200 success (50ms response)
           return new Response("success", {
             status: 200,
             headers: { "content-type": "text/plain; charset=utf-8" }

@@ -4,5 +4,11 @@
   "compatibility_date": "2026-09-21",
   "compatibility_flags": [
     "nodejs_compat"
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "WECHAT_MESSAGE_QUEUE",
+      "id": "8f5368dc335b4b3a9bf3eac54ee162a0"
+    }
   ]
 }

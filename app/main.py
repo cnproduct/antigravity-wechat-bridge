@@ -14,6 +14,9 @@ from app.session_manager import session_manager
 from app.workspace_manager import workspace_manager
 from app.task_queue import task_queue
 
+from contextlib import asynccontextmanager
+from app.pull_worker import pull_worker
+
 # 配置日志格式
 logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
@@ -21,10 +24,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger("antigravity.main")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动边缘队列拉取线程 (支持无公网 IP / 无隧道零配置工作)
+    pull_worker.start()
+    yield
+    pull_worker.stop()
+
+
 app = FastAPI(
     title="Antigravity WeChat Bridge",
     description="轻量级微信 / 企业微信与 Google Antigravity Agent 远程调度桥接网关（支持多租户与强隔离）",
-    version="1.1.0"
+    version="1.1.0",
+    lifespan=lifespan
 )
 
 
