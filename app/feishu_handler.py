@@ -202,39 +202,16 @@ class FeishuHandler:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    # 模拟进度刷新为 50%
-                    if card_msg_id:
-                        self.update_card(
-                            card_msg_id,
-                            self.build_progress_card(
-                                title="⚡ WB极速上架助手 · 执行中",
-                                progress_pct=50,
-                                status_text="正在解析商品参数与调用上架核心...",
-                                details=f"🆔 **会话 ID**: `{cid[:8]}...{cid[-4:]}`\n⏳ 智能体推理与上架进行中..."
-                            )
-                        )
-
-                    # 调度本地 Agent
+                    # 调度本地 Agent（由 agent_runner 内部精细化更新卡片进度与逐款通知）
                     loop.run_until_complete(
                         agent_runner.execute_task(
                             user_id=feishu_user_prefix,
                             prompt=prompt,
                             conversation_id=cid,
-                            workspace=str(workspace)
+                            workspace=str(workspace),
+                            card_msg_id=card_msg_id
                         )
                     )
-
-                    # 完成后更新卡片为 100% 绿色
-                    if card_msg_id:
-                        self.update_card(
-                            card_msg_id,
-                            self.build_progress_card(
-                                title="✅ WB极速上架助手 · 处理完成",
-                                progress_pct=100,
-                                status_text="上架任务与业务检查已执行完成。",
-                                details=f"详情请参见下方生成的业务结论与明细回显。"
-                            )
-                        )
                 except Exception as e:
                     logger.error(f"飞书 Agent 任务执行异常: {e}")
                     if card_msg_id:
