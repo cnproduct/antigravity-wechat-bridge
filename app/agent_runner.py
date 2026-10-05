@@ -65,10 +65,14 @@ class AgentRunner:
                 cmd,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=timeout,
                 env=env
             )
-            return res.returncode, res.stdout.strip(), res.stderr.strip()
+            stdout = res.stdout.strip() if res.stdout else ""
+            stderr = res.stderr.strip() if res.stderr else ""
+            return res.returncode, stdout, stderr
         except Exception as e:
             logger.error(f"调用 wb 命令失败 {cmd}: {e}")
             return -1, "", str(e)

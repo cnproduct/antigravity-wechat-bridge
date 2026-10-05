@@ -10,6 +10,7 @@ from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 import subprocess
+import tempfile
 
 logger = logging.getLogger("antigravity.scraper")
 logger.setLevel(logging.INFO)
@@ -100,7 +101,7 @@ async def process_awaiting_browser(cid: str, sku: str, start_time: int, wb_cmd: 
             "pages": pages
         }
         
-        capture_file = Path(f"/tmp/ozon_capture_{sku}.json")
+        capture_file = Path(tempfile.gettempdir()) / f"ozon_capture_{sku}.json"
         capture_file.write_text(json.dumps(capture_data, ensure_ascii=False), encoding="utf-8")
         
         # 提交结果
@@ -114,7 +115,14 @@ async def process_awaiting_browser(cid: str, sku: str, start_time: int, wb_cmd: 
         ]
         logger.info(f"[{sku}] 回传 DOM 结果...")
         
-        res = subprocess.run(submit_cmd, capture_output=True, text=True, timeout=60)
+        res = subprocess.run(
+            submit_cmd,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=60
+        )
         if res.returncode != 0:
             logger.error(f"[{sku}] 回传结果失败: {res.stderr} \n {res.stdout}")
         else:
