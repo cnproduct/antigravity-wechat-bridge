@@ -23,18 +23,27 @@ logging.basicConfig(
     level=logging.DEBUG if settings.debug else logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
+# 抑制第三方网络请求库的刷屏日志，保持控制台清爽只看业务进度
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+
 logger = logging.getLogger("antigravity.main")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. 启动微信边缘队列拉取线程 (支持无公网 IP / 无隧道零配置工作)
-    pull_worker.start()
+    # 1. 启动微信边缘队列拉取线程 (支持无公网 IP / 无隧道零配置工作；若 WECHAT_ENABLED=false 则彻底关闭)
+    wechat_enabled = os.getenv("WECHAT_ENABLED", "true").lower() == "true"
+    if wechat_enabled:
+        pull_worker.start()
+    else:
+        logger.info("企业微信通道已配置为关闭 (WECHAT_ENABLED=false)，仅启用飞书长连接监听。")
     # 2. 启动飞书官方 WebSocket 长连接守护线程 (免公网IP/免域名/秒级响应)
     feishu_handler.start_worker()
     yield
     feishu_handler.stop_worker()
-    pull_worker.stop()
+    if wechat_enabled:
+        pull_worker.stop()
 
 
 app = FastAPI(
